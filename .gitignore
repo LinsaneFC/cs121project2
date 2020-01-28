@@ -1,2 +1,7 @@
 # Git ignore file
-*.DS_Store
+# Ignoring pycache, vscode, python-version. 
+.*
+__pycache__
+
+
+spacetime_crawler_data/

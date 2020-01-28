@@ -2,6 +2,8 @@ import logging
 import re
 from urllib.parse import urlparse
 
+from lxml import html
+
 logger = logging.getLogger(__name__)
 
 class Crawler:
@@ -39,6 +41,11 @@ class Crawler:
 
         Suggested library: lxml
         """
+        
+        html_data = url_data['content'].decode() #decode from bytes to string
+        root = html.fromstring(html_data)           
+        print(root.xpath('//a/@href'))
+
         outputLinks = []
         return outputLinks
 
