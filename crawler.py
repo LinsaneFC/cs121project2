@@ -42,11 +42,22 @@ class Crawler:
         Suggested library: lxml
         """
         
-        html_data = url_data['content'].decode() #decode from bytes to string
-        root = html.fromstring(html_data)           
-        print(root.xpath('//a/@href'))
-
         outputLinks = []
+        html_data = url_data['content']
+        if isinstance(html_data, bytes):
+            html_data = url_data['content'].decode() #decode from bytes to string
+
+        # If the url is not in the corpus
+        if html_data == "": 
+            return outputLinks
+
+        doc = html.fromstring(html_data)
+        doc.make_links_absolute(url_data['url'])
+
+        href_links = doc.xpath('//a/@href')
+        
+        outputLinks.extend(href_links)    
+
         return outputLinks
 
     def is_valid(self, url):
