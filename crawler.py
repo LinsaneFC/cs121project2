@@ -3,8 +3,10 @@ import re
 from urllib.parse import urlparse
 
 from lxml import html
+from lxml import etree
 
 logger = logging.getLogger(__name__)
+# content_types = set()
 
 class Crawler:
     """
@@ -31,6 +33,11 @@ class Crawler:
                     if self.corpus.get_file_name(next_link) is not None:
                         self.frontier.add_url(next_link)
 
+
+        # url = "http://www.ics.uci.edu/~cs224"
+        # url_data = self.corpus.fetch_url(url)
+        # self.extract_next_links(url_data)
+
     def extract_next_links(self, url_data):
         """
         The url_data coming from the fetch_url method will be given as a parameter to this method. url_data contains the
@@ -44,20 +51,27 @@ class Crawler:
         
         outputLinks = []
         html_data = url_data['content']
-        if isinstance(html_data, bytes):
-            html_data = url_data['content'].decode() #decode from bytes to string
+        # if isinstance(html_data, bytes):
+        #     html_data = url_data['content'].decode() #decode from bytes to string
 
-        # If the url is not in the corpus
-        if html_data == "": 
+        # If the url is not in the corpus or if content data only had whitespace (such as \n)
+        # content_types.add(url_data['content_type'])
+        html_data = html_data.strip()
+        if html_data == "" or html_data == b'': 
+            return outputLinks
+        
+        
+        try:
+            doc = html.fromstring(html_data)
+        except etree.ParserError:
+            print(url_data['url'], ": document could not be parsed.")
             return outputLinks
 
-        doc = html.fromstring(html_data)
         doc.make_links_absolute(url_data['url'])
-
         href_links = doc.xpath('//a/@href')
-        
         outputLinks.extend(href_links)    
 
+        print(content_types)
         return outputLinks
 
     def is_valid(self, url):
