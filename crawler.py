@@ -25,7 +25,7 @@ class Crawler:
         """
         while self.frontier.has_next_url():
             url = self.frontier.get_next_url()
-            logger.info("Fetching URL %s ... Fetched: %s, Queue size: %s", url, self.frontier.fetched, len(self.frontier))
+            #logger.info("Fetching URL %s ... Fetched: %s, Queue size: %s", url, self.frontier.fetched, len(self.frontier))
             url_data = self.corpus.fetch_url(url)
 
             for next_link in self.extract_next_links(url_data):
@@ -60,18 +60,30 @@ class Crawler:
         if html_data == "" or html_data == b'': 
             return outputLinks
         
+        file_obj1 = open("first.txt", 'w')
+        file_obj2 = open("second.txt", 'w')
         
         try:
             doc = html.fromstring(html_data)
         except etree.ParserError:
-            print(url_data['url'], ": document could not be parsed.")
-            return outputLinks
+            print("parse error first one", url_data['url'])
+            file_obj1.write(url_data['url'])
+            
+            new_html_data = ""
+            for c in html_data.decode():
+                if ord(c) >= 1 and ord(c) <= 127:
+                    new_html_data += c
+            try:
+                doc = html.fromstring(new_html_data)
+            except etree.ParserError:
+                print("parse error second one", url_data['url'])
+                file_obj2.write(url_data['url'])
 
+            
         doc.make_links_absolute(url_data['url'])
         href_links = doc.xpath('//a/@href')
         outputLinks.extend(href_links)    
 
-        print(content_types)
         return outputLinks
 
     def is_valid(self, url):
