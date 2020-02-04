@@ -66,7 +66,7 @@ class Crawler:
         analytics1 = open('analytics1.txt', 'w')
         analytics1.write(f'Key: subdomain, number of URLs processed\n\n')
         for subdomain in self.subdomains:
-            analytics1.write(f'{subdomain}, {self.subdomains[subdomain]}\n')
+            analytics1.write("{:<40} {:>7}\n".format(subdomain, self.subdomains[subdomain]))
         analytics1.close()
 
         # Page with most valid out links
@@ -94,8 +94,8 @@ class Crawler:
 
         # Page with most number of words
         analytics4 = open('analytics4.txt', 'w', encoding = 'utf-8')
-        analytics4.write('Longest page URL:\t' + str(self.max_words[0]) + "\n")
-        analytics4.write('Number of words on page:\t' + str(self.max_words[1]))
+        analytics4.write("{:<26} {:<10}\n".format("Longest page URL:", self.max_words[0]))
+        analytics4.write("{:<26} {:<10}\n".format("Number of words on page:", self.max_words[1]))
         analytics4.close()
 
         # Top 50 most common words
@@ -125,13 +125,14 @@ class Crawler:
         
         outputLinks = []
         html_data = url_data['content']
-        html_data = html_data.strip()
-
+        
         # If the url is not in the corpus or if content data only had whitespace (such as \n)
         # content_types.add(url_data['content_type'])
-        # Also don't bother checking content if return http status is 404 or if content is empty
-        if url_data['http_code'] == 404 or url_data['size'] == 0 or html_data in ["", b'']:
+        # Also don't bother checking content if return http status is 404 or if content is empty/None
+        if html_data == None or url_data['http_code'] == 404 or url_data['size'] == 0 or html_data in ["", b'']:
             return outputLinks
+
+        html_data = html_data.strip()
 
         try:
             doc = html.fromstring(html_data)
@@ -177,14 +178,23 @@ class Crawler:
         folders = list(filter(lambda x: x != "", folders))
         return len(set(folders)) != len(folders)
 
+    # Checks for dynamic URLs
     def check_query(self, query):
         if re.search("sid=|year=|date=|sort=", query) != None:
             return True
-        return query.count("&") > 2 or query.count("=") > 2 or query.count("%") > 2
+        return query.count("&") > 3 or query.count("=") > 3 or query.count("%") > 3
 
 
-    def check_fragment(self, fragment):
-        return re.search("respond|comment|branding|year", fragment) != None
+    # Checks URL's fragment to remove URLs that all go to the same site
+    # If URL has extra fragment, add base URL to the frontier
+    # Ex: if found: https://ngs.ics.uci.edu/author/ramesh/page/254/#branding
+    #     add to frontier: https://ngs.ics.uci.edu/author/ramesh/page/254/
+    def check_fragment(self, url):
+        parsed = urlparse(url)
+        if re.search("respond|comment|branding|year", parsed.fragment) != None:
+            self.frontier.add_url(url)
+            return True
+        return False
 
     def is_valid(self, url):
         """
@@ -217,7 +227,7 @@ class Crawler:
             if re.match(".*\.(sql*|ds_store|pdf)$", parsed.path.lower()) \
                     or self.check_path(parsed.path.lower()) \
                     or self.check_query(parsed.query.lower())\
-                    or self.check_fragment(parsed.fragment.lower())\
+                    or self.check_fragment(url.lower())\
                     or re.search("fano", parsed.hostname.lower()) != None\
                     or re.search("html#", url.lower()) != None:
                 if url != '':
