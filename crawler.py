@@ -58,7 +58,7 @@ class Crawler:
                         self.frontier.add_url(next_link)
 
         # # To check specific links one at a time
-        # url = "http://mondego.ics.uci.edu/datasets/maven-contents.txt"
+        # url = "http://www.ics.uci.edu/~dsm/dyn/release/changelog.txt"
         # url_data = self.corpus.fetch_url(url)
         # links = self.extract_next_links(url_data)
 
@@ -129,10 +129,13 @@ class Crawler:
         # If the url is not in the corpus or if content data only had whitespace (such as \n)
         # content_types.add(url_data['content_type'])
         # Also don't bother checking content if return http status is 404 or if content is empty/None
-        if html_data == None or url_data['http_code'] == 404 or url_data['size'] == 0 or html_data in ["", b'']:
+        if html_data == None:
             return outputLinks
 
         html_data = html_data.strip()
+
+        if url_data['http_code'] == 404 or url_data['size'] == 0 or html_data in ["", b'']:
+            return outputLinks
 
         try:
             doc = html.fromstring(html_data)
@@ -189,9 +192,11 @@ class Crawler:
     # If URL has extra fragment, add base URL to the frontier
     # Ex: if found: https://ngs.ics.uci.edu/author/ramesh/page/254/#branding
     #     add to frontier: https://ngs.ics.uci.edu/author/ramesh/page/254/
+    # For websites with .html# the website simply jumps to the location of a div header 
     def check_fragment(self, url):
         parsed = urlparse(url)
-        if re.search("respond|comment|branding|year", parsed.fragment) != None:
+        if re.search("respond|comment|branding|year", parsed.fragment) != None\
+            or re.search("html#", url.lower()) != None:
             self.frontier.add_url(url.split('#')[0])
             return True
         return False
@@ -223,17 +228,11 @@ class Crawler:
             print("TypeError for ", parsed)
             return False
 
-        try:
-            if re.match(".*\.(sql*|ds_store|pdf)$", parsed.path.lower()) \
-                    or self.check_path(parsed.path.lower()) \
-                    or self.check_query(parsed.query.lower())\
-                    or self.check_fragment(url.lower())\
-                    or re.search("fano", parsed.hostname.lower()) != None\
-                    or re.search("html#", url.lower()) != None:
-                if url != '':
-                    self.traps.add(url)
-                return False
-        except:
+        if re.match(".*\.(sql*|ds_store|pdf)$", parsed.path.lower()) \
+                or self.check_path(parsed.path.lower()) \
+                or self.check_query(parsed.query.lower())\
+                or self.check_fragment(url.lower())\
+                or re.search("fano", parsed.hostname.lower()) != None:
             if url != '':
                 self.traps.add(url)
             return False
