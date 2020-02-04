@@ -3,5 +3,8 @@
 .*
 __pycache__
 
+analytics*
+
+Assignment*
 
 spacetime_crawler_data/

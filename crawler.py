@@ -23,6 +23,16 @@ class Crawler:
         self.outlinks = dict()
         self.downloaded = set()
         self.traps = set()
+        self.max_words = ('', 0)
+        
+        self.wordOccur = dict()
+        self.stopWords = []
+        stopWords = open('stopwords.txt', 'r')
+        for word in stopWords:
+            self.stopWords.append(word.strip())
+
+        
+
 
     def start_crawling(self):
         """
@@ -40,17 +50,17 @@ class Crawler:
             for next_link in self.extract_next_links(url_data):
                 if self.is_valid(next_link):
                     if self.corpus.get_file_name(next_link) is not None:
-                        if url not in self.outlinks:
-                            self.outlinks[url] = 1
-                        else:
-                            self.outlinks[url] += 1
+                        self.outlinks[url] = 1 if url not in self.outlinks else (self.outlinks[url] + 1)                    
                         domain = (urlparse(next_link).hostname)
                         if domain != '':
-                            if domain not in self.subdomains:
-                                self.subdomains[domain] = 1
-                            else:
-                                self.subdomains[domain] += 1
+                            self.subdomains[domain] = 1 if (domain not in self.subdomains) else (self.subdomains[domain] + 1)
+                                
                         self.frontier.add_url(next_link)
+
+        # # To check specific links one at a time
+        # url = "http://mondego.ics.uci.edu/datasets/maven-contents.txt"
+        # url_data = self.corpus.fetch_url(url)
+        # links = self.extract_next_links(url_data)
 
         # Subdomains visited and how many URLs each one processed
         analytics1 = open('analytics1.txt', 'w')
@@ -82,6 +92,26 @@ class Crawler:
             analytics3b.write(url + '\n')
         analytics3b.close()
 
+        # Page with most number of words
+        analytics4 = open('analytics4.txt', 'w', encoding = 'utf-8')
+        analytics4.write('Longest page URL:\t' + str(self.max_words[0]) + "\n")
+        analytics4.write('Number of words on page:\t' + str(self.max_words[1]))
+        analytics4.close()
+
+        # Top 50 most common words
+        analytics5 = open('analytics5.txt', 'w', encoding = 'utf-8')
+        analytics5.write("Most occured 50 words and their frequencies:\n")
+        currentCount = 0
+        for word, count in {k : v for k, v in sorted(self.wordOccur.items(), key= lambda item: item[1], reverse = True)}.items():
+            if currentCount >= 50:
+                break
+            if word not in self.stopWords:
+                currentCount += 1
+                analytics5.write('{:<30} {:>4}\n'.format(word, count))
+
+        
+
+
     def extract_next_links(self, url_data):
         """
         The url_data coming from the fetch_url method will be given as a parameter to this method. url_data contains the
@@ -95,24 +125,19 @@ class Crawler:
         
         outputLinks = []
         html_data = url_data['content']
-        # if isinstance(html_data, bytes):
-        #     html_data = url_data['content'].decode() #decode from bytes to string
+        html_data = html_data.strip()
 
         # If the url is not in the corpus or if content data only had whitespace (such as \n)
         # content_types.add(url_data['content_type'])
-        html_data = html_data.strip()
-        if html_data == "" or html_data == b'': 
+        # Also don't bother checking content if return http status is 404 or if content is empty
+        if url_data['http_code'] == 404 or url_data['size'] == 0 or html_data in ["", b'']:
             return outputLinks
-        
-        #file_obj1 = open("first.txt", 'w')
-        #file_obj2 = open("second.txt", 'w')
-        
+
         try:
             doc = html.fromstring(html_data)
-        except etree.ParserError:
-            #print("parse error first one", url_data['url'])
-            #file_obj1.write(url_data['url'])
-            
+        except etree.ParserError: 
+            # In the case where there is a parsererror due to non ascii text, strip out all 
+            # non-ascii text and try again.  
             new_html_data = ""
             for c in html_data.decode():
                 if ord(c) >= 1 and ord(c) <= 127:
@@ -120,14 +145,24 @@ class Crawler:
             try:
                 doc = html.fromstring(new_html_data)
             except etree.ParserError:
-                #print("parse error second one", url_data['url'])
-                #file_obj2.write(url_data['url'])
                 pass
 
-            
         doc.make_links_absolute(url_data['url'])
         href_links = doc.xpath('//a/@href')
-        outputLinks.extend(href_links)    
+        outputLinks.extend(href_links)  
+
+        etree.strip_elements(doc, 'script')
+        
+        raw_text = doc.text_content().split()
+        # Analytics 4
+        page_text_len = len(raw_text)
+        if  page_text_len > self.max_words[1]:
+            self.max_words = (url_data['url'], page_text_len)
+
+        # Analytics 5
+        for word in raw_text:
+            self.wordOccur[word] = 1 if word not in self.wordOccur else (self.wordOccur[word] + 1)
+
 
         return outputLinks
 
@@ -148,7 +183,7 @@ class Crawler:
         """
         parsed = urlparse(url)
         url = str(url)
-        if parsed.scheme not in set(["http", "https"]):
+        if parsed.scheme not in ["http", "https"]:
             if url != '':
                 self.traps.add(url)
             return False
