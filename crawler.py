@@ -192,7 +192,7 @@ class Crawler:
     def check_fragment(self, url):
         parsed = urlparse(url)
         if re.search("respond|comment|branding|year", parsed.fragment) != None:
-            self.frontier.add_url(url)
+            self.frontier.add_url(url.split('#')[0])
             return True
         return False
 
