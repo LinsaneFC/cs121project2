@@ -161,19 +161,30 @@ class Crawler:
 
         # Analytics 5
         for word in raw_text:
-            self.wordOccur[word] = 1 if word not in self.wordOccur else (self.wordOccur[word] + 1)
+            word = word.lower()
+            if word.isalnum() and len(word) > 2:
+                self.wordOccur[word] = 1 if word not in self.wordOccur else (self.wordOccur[word] + 1)
 
 
         return outputLinks
 
 
     # Checks if URL path has repeating folders
-    def check_repeating_folders(self, url):
-        url = str(url)
-        folders = url.split("/")
+    def check_path(self, path):
+        if re.search("/search/|/calendar/|/date/|/filter/|query", path) != None:
+            return True
+        folders = path.split("/")
         folders = list(filter(lambda x: x != "", folders))
         return len(set(folders)) != len(folders)
 
+    def check_query(self, query):
+        if re.search("sid=|year=|date=|sort=", query) != None:
+            return True
+        return query.count("&") > 2 or query.count("=") > 2 or query.count("%") > 2
+
+
+    def check_fragment(self, fragment):
+        return re.search("respond|comment|branding|year", fragment) != None
 
     def is_valid(self, url):
         """
@@ -204,16 +215,11 @@ class Crawler:
 
         try:
             if re.match(".*\.(sql*|ds_store|pdf)$", parsed.path.lower()) \
-                    or re.match("/search/|/calendar/|/date/|/filter/|query", parsed.path.lower())\
-                    or re.match("sid=|year=|date=|sort=|\?|&|%|\+|\$", url.lower())\
-                    or self.check_repeating_folders(url)\
-                    or url.count("&") > 2 or url.count("=") > 2 or url.count("%") > 2 \
-                    or 'fano' in parsed.hostname\
-                    or parsed.fragment == 'respond'\
-                    or 'year' in parsed.fragment\
-                    or 'html#' in url\
-                    or '#comment' in url\
-                    or '#branding' in url:
+                    or self.check_path(parsed.path.lower()) \
+                    or self.check_query(parsed.query.lower())\
+                    or self.check_fragment(parsed.fragment.lower())\
+                    or re.search("fano", parsed.hostname.lower()) != None\
+                    or re.search("html#", url.lower()) != None:
                 if url != '':
                     self.traps.add(url)
                 return False
